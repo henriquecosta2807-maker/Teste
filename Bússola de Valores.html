@@ -1,0 +1,580 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Bússola de Valores</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: uma folha por pergunta, com uma régua de 36 marcas no topo; o resultado vira uma carta de navegação (bússola, radar e barras divergentes). Uma única cor de destaque, sem cores partidárias. */
+:root {
+  --paper: #EDF0F2;
+  --card: #F8FAFB;
+  --ink: #14212E;
+  --muted: #556574;
+  --line: #C8D1D9;
+  --tint: #E1E7EC;
+  --accent: #0E6B6B;
+  --on-accent: #FFFFFF;
+  --mark: #C77700;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E1822;
+    --card: #15232F;
+    --ink: #E5ECF2;
+    --muted: #9AABBA;
+    --line: #2B3C4B;
+    --tint: #1C2D3B;
+    --accent: #4DC2B6;
+    --on-accent: #06201F;
+    --mark: #F0A640;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0E1822;
+  --card: #15232F;
+  --ink: #E5ECF2;
+  --muted: #9AABBA;
+  --line: #2B3C4B;
+  --tint: #1C2D3B;
+  --accent: #4DC2B6;
+  --on-accent: #06201F;
+  --mark: #F0A640;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-block: 20px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; }
+.wrap { max-width: 720px; margin: 0 auto; }
+
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; }
+.count { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lead { margin: .45rem 0 1rem; color: var(--muted); font-size: .95rem; }
+
+.ruler { display: flex; gap: 2px; margin: 0 0 1.1rem; }
+.tick { flex: 1 1 0; min-width: 0; height: 14px; background: var(--tint); border-radius: 1px; }
+.tick:nth-child(6n+1):not(:first-child) { margin-left: 5px; }
+.tick.done { background: var(--accent); }
+.tick.now { background: var(--mark); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.25rem 1.1rem; }
+.qlabel { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 .6rem; }
+.q { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.3rem, 1.1rem + 1.2vw, 1.65rem); line-height: 1.3; margin: 0; text-wrap: pretty; outline: none; }
+
+.answers { display: grid; gap: 8px; margin-top: 1.1rem; }
+.ans { display: grid; grid-template-columns: 2rem 1fr; align-items: center; gap: .4rem; width: 100%; min-height: 48px; padding: .7rem .9rem; text-align: left; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; transition: background .12s, border-color .12s; }
+.ans .n { font-family: var(--font-mono); font-weight: 500; color: var(--muted); }
+.ans:hover { border-color: var(--accent); }
+.ans[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ans[aria-pressed="true"] .n { color: var(--on-accent); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 1rem; }
+.back { background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: .55rem .9rem; min-height: 44px; cursor: pointer; }
+.back:hover:not(:disabled) { border-color: var(--accent); }
+.back:disabled { opacity: .4; cursor: default; }
+.hint { font-size: .8rem; color: var(--muted); text-align: right; }
+@media (max-width: 560px) { .hint { display: none; } }
+
+.res h1 { font-family: var(--font-display); font-size: clamp(1.8rem, 1.4rem + 2vw, 2.4rem); line-height: 1.1; margin: .6rem 0 .6rem; }
+.summary { margin: 0; font-size: 1.05rem; }
+.sec { margin-top: 2.4rem; }
+.sec h2 { font-family: var(--font-display); font-size: 1.4rem; line-height: 1.2; margin: 0 0 .35rem; }
+.sub { color: var(--muted); margin: 0 0 .9rem; font-size: .95rem; }
+.chart { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: .75rem; }
+.chart svg { display: block; width: 100%; height: auto; max-width: 480px; margin: 0 auto; }
+.cap { font-size: .88rem; color: var(--muted); margin: .7rem 0 0; }
+
+.axis { padding: 1rem 0; border-top: 1px solid var(--line); }
+.axhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.axname { font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; margin: 0; }
+.score { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.bar { position: relative; height: 14px; background: var(--tint); border-radius: 2px; margin: .6rem 0 .35rem; }
+.bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); }
+.fill { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+.poles { display: flex; justify-content: space-between; gap: 12px; font-size: .8rem; color: var(--muted); }
+.poles span { min-width: 0; }
+.poles span:last-child { text-align: right; }
+.poles .on { color: var(--ink); font-weight: 600; }
+.axis p { margin: .7rem 0 0; }
+
+.list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.list > li { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 1rem; }
+.lh { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.list h3 { font-family: var(--font-display); font-size: 1.12rem; margin: 0; }
+.aff { font-family: var(--font-mono); font-size: .85rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.list p { margin: .3rem 0 .5rem; color: var(--muted); font-size: .93rem; }
+.list ul { margin: 0; padding-left: 1.1rem; font-size: .93rem; }
+.list li li { margin: .15rem 0; }
+.quote { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; line-height: 1.35; margin: 0 0 .35rem; }
+.meta { margin: 0; color: var(--muted); font-size: .88rem; }
+.note { border: 1px solid var(--line); border-radius: 6px; padding: 1rem; background: var(--card); font-size: .93rem; }
+.note p { margin: 0 0 .6rem; }
+.note p:last-child { margin: 0; }
+.btn { display: inline-block; margin-top: 2rem; min-height: 48px; padding: .75rem 1.4rem; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 4px; font-weight: 600; cursor: pointer; }
+
+svg text { font-family: var(--font-body); }
+.q1 { fill: var(--tint); }
+.q2 { fill: var(--card); }
+.grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; fill: none; }
+.frame { stroke: var(--muted); stroke-width: 1; fill: none; }
+.axl { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+.tk { font: 500 9.5px var(--font-mono); fill: var(--muted); }
+.qt { font: 500 10px var(--font-body); fill: var(--muted); }
+.al { font: 600 12.5px var(--font-body); fill: var(--ink); }
+.guide { stroke: var(--mark); stroke-width: 1.3; stroke-dasharray: 4 3; fill: none; }
+.dot { fill: var(--mark); stroke: var(--card); stroke-width: 3; }
+.you { font: 700 12.5px var(--font-body); fill: var(--ink); paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
+.ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.ring0 { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.spoke { stroke: var(--line); stroke-width: 1; }
+.rdata { fill: var(--accent); fill-opacity: .2; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.rdot { fill: var(--accent); }
+.rl { font: 500 9.5px var(--font-mono); fill: var(--muted); paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
+.rname { font: 600 13px var(--font-body); fill: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap" id="app" lang="pt-BR"></div>
+
+<script>
+/*DATA-START*/
+const AXES = [
+  { id: "eco", name: "Economia", neg: "Livre mercado", pos: "Regulação estatal",
+    negDesc: "Você tende a confiar na concorrência, nos preços livres e na iniciativa privada para organizar a economia, e prefere que o Estado intervenha pouco.",
+    negNote: "O ponto de atenção desse lado é o que fazer com quem fica para trás quando o mercado não atende bem, como em serviços básicos.",
+    posDesc: "Você tende a achar que o Estado deve corrigir falhas do mercado, garantir serviços essenciais e proteger quem tem menos poder de negociação.",
+    posNote: "O ponto de atenção desse lado é o custo e a eficiência da intervenção, e o risco de regras demais reduzirem a concorrência e a inovação.",
+    mid: "Isso costuma indicar que você confia no mercado em alguns casos e na ação do Estado em outros, conforme o setor e o problema." },
+  { id: "lib", name: "Liberdade", neg: "Libertarismo", pos: "Autoritarismo",
+    negDesc: "Você tende a dar muito peso à liberdade individual e à privacidade, e aceita pouco que o Estado limite escolhas pessoais.",
+    negNote: "O ponto de atenção desse lado é como lidar com situações em que a liberdade de uns gera risco para outros, como em crises de segurança ou de saúde pública.",
+    posDesc: "Você tende a aceitar que o Estado tenha mais poder de vigilância, controle e punição em nome da segurança e da ordem pública.",
+    posNote: "O ponto de atenção desse lado são os limites e a fiscalização desse poder: quem controla quem decide, e o que acontece quando ele é usado de forma indevida.",
+    mid: "Isso costuma indicar que você aceita limites à liberdade em certas situações, como segurança, mas defende garantias individuais em outras." },
+  { id: "cul", name: "Cultura", neg: "Tradicionalismo", pos: "Progressismo",
+    negDesc: "Você tende a valorizar costumes, tradições e valores herdados, e vê a continuidade cultural como fonte de coesão e de sentido.",
+    negNote: "O ponto de atenção desse lado é distinguir as tradições que ainda unem das que excluem ou perderam o sentido para parte da sociedade.",
+    posDesc: "Você tende a valorizar a ampliação de direitos e a revisão de costumes que deixaram de refletir a forma como as pessoas vivem.",
+    posNote: "O ponto de atenção desse lado é o ritmo das mudanças e o cuidado para não descartar vínculos comunitários que dão estabilidade às pessoas.",
+    mid: "Isso costuma indicar que você valoriza algumas tradições e apoia a atualização de outras, conforme o tema." },
+  { id: "nac", name: "Nação", neg: "Soberania nacional", pos: "Globalismo",
+    negDesc: "Você tende a defender que as decisões sobre leis, fronteiras e economia fiquem nas mãos dos cidadãos de cada país, com prioridade para o interesse nacional.",
+    negNote: "O ponto de atenção desse lado é como enfrentar problemas que atravessam fronteiras, como clima, pandemias e comércio, sem cooperação vinculante.",
+    posDesc: "Você tende a favorecer acordos, organismos e regras comuns entre países, e a ver a circulação de pessoas, bens e ideias como benéfica.",
+    posNote: "O ponto de atenção desse lado é a distância entre quem decide e quem sofre as consequências, e o quanto os cidadãos controlam essas decisões.",
+    mid: "Isso costuma indicar que você apoia a cooperação internacional em certos temas, mas quer manter o controle nacional em outros." },
+  { id: "amb", name: "Ecologia", neg: "Prioridade ao crescimento", pos: "Prioridade ao meio ambiente",
+    negDesc: "Você tende a priorizar crescimento econômico, emprego e renda, e a confiar na tecnologia e na adaptação para lidar com os impactos ambientais.",
+    negNote: "O ponto de atenção desse lado é o custo de longo prazo de danos que podem ser difíceis de reverter, e quem arca com ele.",
+    posDesc: "Você tende a priorizar a proteção do meio ambiente e a aceitar custos econômicos presentes para evitar danos futuros.",
+    posNote: "O ponto de atenção desse lado é o custo imediato para quem depende de empregos e preços afetados pelas restrições, e como distribuí-lo.",
+    mid: "Isso costuma indicar que você busca equilíbrio entre desenvolvimento e proteção, e decide caso a caso." },
+  { id: "mud", name: "Mudança", neg: "Estabilidade e ordem", pos: "Reformas radicais",
+    negDesc: "Você tende a preferir estabilidade, previsibilidade e mudanças graduais, e a desconfiar de rupturas cujo resultado é incerto.",
+    negNote: "O ponto de atenção desse lado é o risco de que problemas graves e antigos nunca sejam corrigidos por pequenos ajustes.",
+    posDesc: "Você tende a achar que problemas profundos pedem mudanças profundas, mesmo que isso traga uma fase de instabilidade.",
+    posNote: "O ponto de atenção desse lado é o risco de que rupturas produzam efeitos imprevistos e custos pagos por quem não os escolheu.",
+    mid: "Isso costuma indicar que você aceita reformas fortes em alguns casos e prefere cautela em outros." }
+];
+
+/* dir = +1: concordar empurra para o polo da direita do eixo; dir = -1: pergunta invertida (concordar empurra para o polo da esquerda). dil = dilema ou escolha concreta. */
+const BANK = {
+  E1: { axis: "eco", dir: 1, dil: 1, text: "Entre reduzir impostos e ampliar a oferta pública de saúde e educação, ampliar os serviços públicos é a melhor escolha." },
+  E2: { axis: "eco", dir: -1, dil: 1, text: "Se os aluguéis subissem muito numa cidade, seria melhor deixar o mercado se ajustar sozinho do que impor um teto aos preços." },
+  E3: { axis: "eco", dir: 1, dil: 1, text: "Uma empresa de água e saneamento deve pertencer ao Estado, mesmo que uma empresa privada pudesse operá-la a um custo menor." },
+  E4: { axis: "eco", dir: -1, text: "Quando alguém abre um negócio e enriquece, isso costuma trazer mais benefícios do que prejuízos para o resto da sociedade." },
+  E5: { axis: "eco", dir: 1, dil: 1, text: "Se uma grande empresa estivesse à beira da falência e prestes a demitir milhares de pessoas, o governo deveria usar dinheiro público para salvá-la." },
+  E6: { axis: "eco", dir: -1, dil: 1, text: "Entre um salário mínimo definido por lei e a livre negociação entre trabalhador e empregador, a livre negociação é preferível." },
+  L1: { axis: "lib", dir: 1, dil: 1, text: "Para reduzir o crime, vale aceitar mais câmeras de vigilância nas ruas, mesmo que isso diminua a privacidade das pessoas." },
+  L2: { axis: "lib", dir: -1, text: "Um adulto deve ter o direito de consumir qualquer substância, desde que não prejudique outras pessoas." },
+  L3: { axis: "lib", dir: 1, dil: 1, text: "Numa crise grave, é preferível dar poderes ampliados, por tempo limitado, ao chefe do governo a depender de longas negociações com o legislativo." },
+  L4: { axis: "lib", dir: -1, dil: 1, text: "Entre soltar um culpado por falha no processo e condenar um possível inocente, é preferível soltar o culpado." },
+  L5: { axis: "lib", dir: 1, text: "O Estado deve poder proibir manifestações públicas que considere uma ameaça à ordem." },
+  L6: { axis: "lib", dir: -1, text: "Ninguém deve ser obrigado por lei a usar cinto de segurança ou capacete quando o risco recai apenas sobre si mesmo." },
+  C1: { axis: "cul", dir: 1, text: "Casais do mesmo sexo devem ter o mesmo reconhecimento legal que casais de sexos diferentes." },
+  C2: { axis: "cul", dir: -1, dil: 1, text: "Numa escola pública, entre manter os símbolos religiosos tradicionais da comunidade e retirá-los para garantir neutralidade, é melhor mantê-los." },
+  C3: { axis: "cul", dir: 1, text: "Costumes antigos devem ser abandonados quando deixam de refletir a forma como as pessoas vivem hoje." },
+  C4: { axis: "cul", dir: -1, text: "A sociedade fica mais saudável quando os valores tradicionais são transmitidos de geração em geração com poucas mudanças." },
+  C5: { axis: "cul", dir: 1, dil: 1, text: "Se uma tradição popular muito antiga é considerada ofensiva por parte da população, é melhor adaptá-la ou encerrá-la do que mantê-la como está." },
+  C6: { axis: "cul", dir: -1, dil: 1, text: "Na educação dos filhos, é mais importante transmitir disciplina e respeito às tradições do que estimular o questionamento das regras." },
+  N1: { axis: "nac", dir: 1, dil: 1, text: "Entre manter total autonomia sobre as próprias leis e integrar um bloco de países com regras comuns que ampliam o comércio, integrar-se é a melhor opção." },
+  N2: { axis: "nac", dir: -1, text: "As decisões importantes de um país devem ser tomadas apenas por seus cidadãos, sem pressão de organismos internacionais." },
+  N3: { axis: "nac", dir: 1, dil: 1, text: "Entre manter limites rígidos à imigração e permitir que mais pessoas se mudem para trabalhar, a segunda opção é preferível." },
+  N4: { axis: "nac", dir: -1, dil: 1, text: "Entre comprar um produto nacional mais caro e um importado mais barato, é melhor escolher o nacional, mesmo pagando mais." },
+  N5: { axis: "nac", dir: 1, text: "Tribunais internacionais devem poder julgar autoridades de qualquer país por violações graves de direitos humanos." },
+  N6: { axis: "nac", dir: -1, dil: 1, text: "Ao negociar com outros países, o governo deve priorizar o interesse dos próprios cidadãos, mesmo que isso prejudique outras nações." },
+  A1: { axis: "amb", dir: 1, dil: 1, text: "Entre abrir uma mina que criaria empregos numa área de floresta preservada e manter a área intacta, é melhor manter a área intacta." },
+  A2: { axis: "amb", dir: -1, text: "Países que ainda enfrentam pobreza devem priorizar o crescimento econômico antes de reduzir suas emissões de poluentes." },
+  A3: { axis: "amb", dir: 1, dil: 1, text: "Vale a pena pagar mais caro por energia e alimentos se isso reduzir o impacto ambiental." },
+  A4: { axis: "amb", dir: -1, text: "Os problemas ambientais serão resolvidos principalmente por avanços tecnológicos, e não por restrições à produção." },
+  A5: { axis: "amb", dir: 1, text: "Governos devem limitar atividades poluentes, mesmo que isso reduza o crescimento econômico." },
+  A6: { axis: "amb", dir: -1, dil: 1, text: "Se minha cidade pudesse escolher entre uma fábrica que gera mil empregos e polui o rio e nenhuma fábrica, eu aceitaria a fábrica." },
+  M1: { axis: "mud", dir: 1, text: "Sistemas políticos e econômicos muito antigos precisam ser reconstruídos, e não apenas ajustados." },
+  M2: { axis: "mud", dir: -1, dil: 1, text: "Entre uma reforma gradual que leva vinte anos e uma mudança rápida com risco de instabilidade, prefiro a reforma gradual." },
+  M3: { axis: "mud", dir: 1, dil: 1, text: "Se uma instituição pública é ineficiente há décadas, é melhor extingui-la e criar outra do que tentar reformá-la aos poucos." },
+  M4: { axis: "mud", dir: -1, text: "Instituições que sobreviveram por muito tempo costumam guardar um conhecimento que não deve ser descartado." },
+  M5: { axis: "mud", dir: 1, text: "As injustiças mais graves de uma sociedade só são corrigidas quando se rompe com as estruturas existentes." },
+  M6: { axis: "mud", dir: -1, dil: 1, text: "Entre manter a ordem atual, com problemas conhecidos, e apostar numa mudança profunda de resultado incerto, eu manteria a ordem atual." }
+};
+const ORDER = [
+  "E1", "L2", "C2", "N1", "A2", "M1",
+  "L1", "M4", "E2", "A1", "N4", "C1",
+  "N2", "C4", "A3", "E4", "M2", "L3",
+  "A4", "E3", "M5", "L6", "C3", "N5",
+  "C6", "N3", "L4", "M3", "E6", "A6",
+  "M6", "A5", "N6", "C5", "L5", "E5"
+];
+const QUESTIONS = ORDER.map(function (id) { return Object.assign({ id: id }, BANK[id]); });
+const TOTAL = QUESTIONS.length;
+const LABELS = ["Discordo totalmente", "Discordo", "Neutro", "Concordo", "Concordo totalmente"];
+
+/* Vetores de referência na ordem: economia, liberdade, cultura, nação, ecologia, mudança. */
+const PROFILES = [
+  { name: "Liberalismo clássico", desc: "Economia de mercado, liberdades civis e Estado limitado.", v: [-70, -65, 15, 30, -20, -5] },
+  { name: "Libertarianismo", desc: "Liberdade individual máxima e Estado mínimo.", v: [-95, -95, 10, 20, -40, 25] },
+  { name: "Conservadorismo clássico", desc: "Cautela com mudanças rápidas e valor atribuído a instituições e tradições.", v: [-20, 25, -70, -20, -10, -85] },
+  { name: "Nacional-conservadorismo", desc: "Tradição cultural, identidade nacional e soberania acima da integração internacional.", v: [-15, 60, -75, -80, -45, 20] },
+  { name: "Democracia cristã", desc: "Valores tradicionais combinados com economia social de mercado.", v: [25, 15, -50, 0, 20, -50] },
+  { name: "Social-democracia", desc: "Economia de mercado com Estado de bem-estar forte e reformas graduais.", v: [55, -25, 55, 35, 40, -10] },
+  { name: "Socialismo democrático", desc: "Maior controle público da economia por meios democráticos e igualdade material.", v: [85, -15, 70, 45, 55, 50] },
+  { name: "Marxismo revolucionário", desc: "Superação do capitalismo por uma transformação profunda da sociedade.", v: [100, 25, 70, 65, 40, 95] },
+  { name: "Social-liberalismo", desc: "Liberdades individuais e de costumes, com mercado e alguma rede de proteção.", v: [10, -45, 65, 45, 25, -5] },
+  { name: "Ecologismo político", desc: "Limites ambientais como princípio central da economia e da política.", v: [55, -15, 65, 55, 95, 35] },
+  { name: "Nacional-desenvolvimentismo", desc: "Estado indutor do crescimento e da indústria nacional, com soberania econômica.", v: [75, 20, 10, -55, -45, 10] },
+  { name: "Anarquismo", desc: "Rejeição do Estado e da hierarquia em favor da organização voluntária e coletiva.", v: [60, -100, 70, 50, 45, 100] },
+  { name: "Autoritarismo nacionalista", desc: "Poder centralizado, ordem e prioridade absoluta ao interesse nacional.", v: [50, 95, -60, -95, -30, 50] },
+  { name: "Centrismo pragmático", desc: "Soluções caso a caso, mudanças graduais e baixa carga ideológica.", v: [0, 10, 10, 20, 10, -35] },
+  { name: "Cosmopolitismo liberal", desc: "Abertura entre países, cooperação internacional e liberdades individuais.", v: [-10, -30, 50, 90, 30, 10] },
+  { name: "Liberal-conservadorismo", desc: "Mercado livre combinado com valores tradicionais e instituições estáveis.", v: [-60, 15, -55, -10, -35, -45] }
+];
+
+/* Cada resposta vale de -2 a +2: (resposta - 3) x dir. Pontuação do eixo = soma das 6 respostas / 12 x 100. */
+function computeResult(answers) {
+  const axes = {};
+  AXES.forEach(function (a) { axes[a.id] = { sum: 0, pos: 0, neg: 0, score: 0 }; });
+  QUESTIONS.forEach(function (q, i) {
+    const v = (answers[i] - 3) * q.dir;
+    const ax = axes[q.axis];
+    ax.sum += v;
+    if (v > 0) ax.pos += v;
+    if (v < 0) ax.neg += -v;
+  });
+  AXES.forEach(function (a) { axes[a.id].score = axes[a.id].sum / 12 * 100; });
+  return axes;
+}
+function topQuestions(answers, res) {
+  const list = QUESTIONS.map(function (q, i) {
+    return { i: i, q: q, v: (answers[i] - 3) * q.dir, axisAbs: Math.abs(res[q.axis].score) };
+  });
+  list.sort(function (a, b) {
+    return Math.abs(b.v) - Math.abs(a.v) || b.axisAbs - a.axisAbs || a.i - b.i;
+  });
+  const out = [];
+  const used = {};
+  for (let k = 0; k < list.length && out.length < 3; k++) {
+    if (used[list[k].q.axis]) continue;
+    used[list[k].q.axis] = true;
+    out.push(list[k]);
+  }
+  return out;
+}
+function nearestProfiles(res) {
+  const u = AXES.map(function (a) { return res[a.id].score; });
+  const maxD = Math.sqrt(6) * 200;
+  return PROFILES.map(function (p) {
+    const d = Math.sqrt(p.v.reduce(function (s, x, k) { return s + Math.pow(u[k] - x, 2); }, 0));
+    return { p: p, d: d, sim: Math.round(100 * (1 - d / maxD)), u: u };
+  }).sort(function (a, b) { return a.d - b.d; }).slice(0, 3);
+}
+function consistency(answers) {
+  const n = answers.length;
+  const ag = answers.filter(function (a) { return a >= 4; }).length / n;
+  const dg = answers.filter(function (a) { return a <= 2; }).length / n;
+  const ne = answers.filter(function (a) { return a === 3; }).length / n;
+  if (ag >= 0.7) return "Você concordou com " + Math.round(ag * 100) + "% das afirmações, inclusive com ideias opostas. Esse padrão de concordância automática puxa o resultado para o centro e pode esconder sua posição real.";
+  if (dg >= 0.7) return "Você discordou de " + Math.round(dg * 100) + "% das afirmações, inclusive de ideias opostas. Esse padrão de discordância automática puxa o resultado para o centro e pode esconder sua posição real.";
+  if (ne >= 0.4) return Math.round(ne * 100) + "% das suas respostas foram neutras, o que torna o resultado menos preciso.";
+  return "Não há sinal de resposta automática: suas respostas variaram entre concordar e discordar conforme a afirmação.";
+}
+/*DATA-END*/
+
+function fmt(n) {
+  const r = Math.round(n);
+  if (r > 0) return "+" + r;
+  if (r < 0) return "−" + Math.abs(r);
+  return "0";
+}
+function dec(n) { return n.toFixed(1).replace(".", ","); }
+
+function analysisText(a, r) {
+  const s = r.score, abs = Math.abs(s), side = s < 0 ? a.neg : a.pos;
+  const split = Math.min(r.pos, r.neg) >= 4;
+  if (abs < 25) {
+    return "Você ficou perto do centro neste eixo. " + a.mid + " " + (split
+      ? "Suas respostas ficaram divididas entre os dois lados, o que sugere que sua posição depende do tema."
+      : "As respostas foram moderadas ou próximas do neutro, o que também é uma posição.");
+  }
+  const s1 = abs >= 60 ? "Você ficou claramente do lado de «" + side + "»." : "Você se inclina para «" + side + "», sem chegar a um extremo.";
+  const s2 = s < 0 ? a.negDesc : a.posDesc;
+  const s3 = split ? "Suas respostas foram divididas, mas o saldo pende para «" + side + "»." : (s < 0 ? a.negNote : a.posNote);
+  return s1 + " " + s2 + " " + s3;
+}
+
+function compassSVG(x, y) {
+  const cx = 200, cy = 180, h = 130;
+  const px = cx + x / 100 * h, py = cy - y / 100 * h;
+  const L = cx - h, R = cx + h, T = cy - h, B = cy + h;
+  const flipX = px > R - 70, flipY = py < T + 22;
+  const lx = flipX ? px - 13 : px + 13, anchor = flipX ? "end" : "start", ly = flipY ? py + 22 : py - 12;
+  return '<svg viewBox="0 0 400 346" role="img" aria-label="Bússola política: economia ' + fmt(x) + ', liberdade ' + fmt(y) + '">' +
+    '<rect class="q1" x="' + L + '" y="' + T + '" width="' + h + '" height="' + h + '"/>' +
+    '<rect class="q2" x="' + cx + '" y="' + T + '" width="' + h + '" height="' + h + '"/>' +
+    '<rect class="q2" x="' + L + '" y="' + cy + '" width="' + h + '" height="' + h + '"/>' +
+    '<rect class="q1" x="' + cx + '" y="' + cy + '" width="' + h + '" height="' + h + '"/>' +
+    '<path class="grid" d="M' + (cx - h / 2) + ' ' + T + 'V' + B + 'M' + (cx + h / 2) + ' ' + T + 'V' + B + 'M' + L + ' ' + (cy - h / 2) + 'H' + R + 'M' + L + ' ' + (cy + h / 2) + 'H' + R + '"/>' +
+    '<rect class="frame" x="' + L + '" y="' + T + '" width="' + (2 * h) + '" height="' + (2 * h) + '"/>' +
+    '<path class="axl" d="M' + L + ' ' + cy + 'H' + R + 'M' + cx + ' ' + T + 'V' + B + '"/>' +
+    '<text class="tk" x="' + (cx - h / 2) + '" y="' + (cy + 13) + '" text-anchor="middle">−50</text>' +
+    '<text class="tk" x="' + (cx + h / 2) + '" y="' + (cy + 13) + '" text-anchor="middle">+50</text>' +
+    '<text class="tk" x="' + (cx - 5) + '" y="' + (cy - h / 2 + 4) + '" text-anchor="end">+50</text>' +
+    '<text class="tk" x="' + (cx - 5) + '" y="' + (cy + h / 2 + 4) + '" text-anchor="end">−50</text>' +
+    '<text class="qt" x="' + (L + 6) + '" y="' + (T + 14) + '">Autoritário</text><text class="qt" x="' + (L + 6) + '" y="' + (T + 26) + '">livre mercado</text>' +
+    '<text class="qt" x="' + (R - 6) + '" y="' + (T + 14) + '" text-anchor="end">Autoritário</text><text class="qt" x="' + (R - 6) + '" y="' + (T + 26) + '" text-anchor="end">regulação estatal</text>' +
+    '<text class="qt" x="' + (L + 6) + '" y="' + (B - 18) + '">Libertário</text><text class="qt" x="' + (L + 6) + '" y="' + (B - 6) + '">livre mercado</text>' +
+    '<text class="qt" x="' + (R - 6) + '" y="' + (B - 18) + '" text-anchor="end">Libertário</text><text class="qt" x="' + (R - 6) + '" y="' + (B - 6) + '" text-anchor="end">regulação estatal</text>' +
+    '<text class="al" x="' + cx + '" y="' + (T - 16) + '" text-anchor="middle">Autoritarismo</text>' +
+    '<text class="al" x="' + cx + '" y="' + (B + 24) + '" text-anchor="middle">Libertarismo</text>' +
+    '<text class="al" x="' + (L - 8) + '" y="' + (cy - 3) + '" text-anchor="end">Livre</text><text class="al" x="' + (L - 8) + '" y="' + (cy + 12) + '" text-anchor="end">mercado</text>' +
+    '<text class="al" x="' + (R + 8) + '" y="' + (cy - 3) + '">Regulação</text><text class="al" x="' + (R + 8) + '" y="' + (cy + 12) + '">estatal</text>' +
+    '<path class="guide" d="M' + px.toFixed(1) + ' ' + py.toFixed(1) + 'V' + cy + 'M' + px.toFixed(1) + ' ' + py.toFixed(1) + 'H' + cx + '"/>' +
+    '<circle class="dot" cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="8"/>' +
+    '<text class="you" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '">Você</text>' +
+    '</svg>';
+}
+
+function radarSVG(scores) {
+  const cx = 180, cy = 170, R = 105;
+  const pt = function (k, r) {
+    const t = (-90 + 60 * k) * Math.PI / 180;
+    return [cx + r * Math.cos(t), cy + r * Math.sin(t)];
+  };
+  const fx = function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); };
+  const poly = function (r) { return AXES.map(function (_, k) { return fx(pt(k, r)); }).join(" "); };
+  let svg = '<svg viewBox="0 0 360 340" role="img" aria-label="Gráfico radar com os seis eixos: ' +
+    AXES.map(function (a, k) { return a.name + " " + fmt(scores[k]); }).join(", ") + '">';
+  [0.25, 0.5, 0.75, 1].forEach(function (f) {
+    svg += '<polygon class="' + (f === 0.5 ? "ring0" : "ring") + '" points="' + poly(R * f) + '"/>';
+  });
+  AXES.forEach(function (_, k) {
+    const p = pt(k, R);
+    svg += '<line class="spoke" x1="' + cx + '" y1="' + cy + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '"/>';
+  });
+  const data = scores.map(function (s, k) { return pt(k, R * (s + 100) / 200); });
+  svg += '<polygon class="rdata" points="' + data.map(fx).join(" ") + '"/>';
+  data.forEach(function (p) { svg += '<circle class="rdot" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3.5"/>'; });
+  [[0.25, "−50"], [0.5, "0"], [0.75, "+50"], [1, "+100"]].forEach(function (rl) {
+    const t = -120 * Math.PI / 180;
+    svg += '<text class="rl" x="' + (cx + R * rl[0] * Math.cos(t) - 3).toFixed(1) + '" y="' + (cy + R * rl[0] * Math.sin(t) + 3).toFixed(1) + '" text-anchor="end">' + rl[1] + '</text>';
+  });
+  AXES.forEach(function (a, k) {
+    const t = (-90 + 60 * k) * Math.PI / 180;
+    const c = Math.cos(t), s = Math.sin(t);
+    const x = cx + (R + 14) * c;
+    const y = cy + (R + 14) * s + (s > 0.3 ? 10 : (s < -0.3 ? -2 : 4));
+    const an = c > 0.3 ? "start" : (c < -0.3 ? "end" : "middle");
+    svg += '<text class="rname" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + an + '">' + a.name + '</text>';
+  });
+  return svg + '</svg>';
+}
+
+function barHTML(a, s) {
+  const w = Math.abs(s) / 2;
+  const style = s < 0 ? "left:" + (50 - w) + "%;width:" + w + "%" : "left:50%;width:" + w + "%";
+  return '<div class="bar" role="img" aria-label="' + a.name + ': ' + fmt(s) + ' entre ' + a.neg + ' e ' + a.pos + '"><span class="fill" style="' + style + '"></span></div>';
+}
+
+function diffsFor(u, p) {
+  return u.map(function (x, k) { return { k: k, d: x - p.v[k] }; })
+    .filter(function (o) { return Math.abs(o.d) >= 25; })
+    .sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); })
+    .slice(0, 2)
+    .map(function (o) {
+      const a = AXES[o.k];
+      const to = o.d > 0 ? a.pos : a.neg;
+      return "Em " + a.name + ", você fica mais perto de «" + to + "» (você " + fmt(u[o.k]) + ", ela " + fmt(p.v[o.k]) + ").";
+    });
+}
+
+const KEY = "bussola-valores-v1";
+const app = document.getElementById("app");
+let state = { i: 0, answers: new Array(TOTAL).fill(null), done: false };
+let lock = false;
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ i: state.i, answers: state.answers })); } catch (e) { /* sem armazenamento */ }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.answers) || d.answers.length !== TOTAL) return;
+    if (!d.answers.every(function (a) { return a === null || (a >= 1 && a <= 5); })) return;
+    state.answers = d.answers;
+    state.i = Math.min(Math.max(+d.i || 0, 0), TOTAL - 1);
+    state.done = state.answers.every(function (a) { return a !== null; });
+  } catch (e) { /* ignora */ }
+}
+
+function renderQuiz(focus) {
+  const i = state.i, q = QUESTIONS[i], cur = state.answers[i];
+  const answered = state.answers.filter(function (a) { return a !== null; }).length;
+  let ticks = "";
+  for (let k = 0; k < TOTAL; k++) {
+    ticks += '<span class="' + (k === i ? "tick now" : (state.answers[k] !== null ? "tick done" : "tick")) + '"></span>';
+  }
+  let btns = "";
+  for (let v = 1; v <= 5; v++) {
+    btns += '<button type="button" class="ans" data-v="' + v + '" aria-pressed="' + (cur === v) + '"><span class="n">' + v + '</span><span>' + LABELS[v - 1] + '</span></button>';
+  }
+  app.innerHTML =
+    '<div class="top"><span class="brand">Bússola de Valores</span><span class="count" aria-live="polite">' + (i + 1) + ' / ' + TOTAL + '</span></div>' +
+    '<p class="lead">Indique o quanto você concorda com cada afirmação, de 1 (discordo totalmente) a 5 (concordo totalmente).</p>' +
+    '<div class="ruler" role="progressbar" aria-label="Progresso do teste" aria-valuemin="0" aria-valuemax="' + TOTAL + '" aria-valuenow="' + answered + '">' + ticks + '</div>' +
+    '<section class="card"><p class="qlabel">Afirmação ' + (i + 1) + '</p><h1 class="q" id="q" tabindex="-1">' + q.text + '</h1>' +
+    '<div class="answers" role="group" aria-labelledby="q">' + btns + '</div></section>' +
+    '<div class="nav"><button type="button" class="back" data-act="back"' + (i === 0 ? " disabled" : "") + '>← Voltar</button>' +
+    '<span class="hint">Teclas 1 a 5 respondem. Seta para a esquerda volta.</span></div>';
+  if (focus) {
+    const h = document.getElementById("q");
+    if (h) h.focus({ preventScroll: true });
+  }
+}
+
+function renderResult() {
+  const res = computeResult(state.answers);
+  const sc = AXES.map(function (a) { return res[a.id].score; });
+  const ranked = AXES.slice().sort(function (a, b) { return Math.abs(res[b.id].score) - Math.abs(res[a.id].score); });
+  const side = function (a) { return res[a.id].score < 0 ? a.neg : a.pos; };
+  const t1 = ranked[0], t2 = ranked[1];
+  const s1 = res[t1.id].score, s2 = res[t2.id].score;
+  let summary;
+  if (Math.abs(s1) < 20) summary = "Seu perfil ficou perto do centro em todos os eixos.";
+  else if (Math.abs(s2) < 20) summary = "Seu eixo mais marcado é " + t1.name + " (" + fmt(s1) + ", lado «" + side(t1) + "»). Nos demais, você ficou mais perto do centro.";
+  else summary = "Seus eixos mais marcados são " + t1.name + " (" + fmt(s1) + ", «" + side(t1) + "») e " + t2.name + " (" + fmt(s2) + ", «" + side(t2) + "»).";
+
+  const ex = res.eco.score, ly = res.lib.score;
+  const quad = (Math.abs(ex) < 10 && Math.abs(ly) < 10)
+    ? "Você ficou perto do centro da bússola."
+    : "Quadrante: " + (ly < 0 ? "libertário" : "autoritário") + ", com " + (ex < 0 ? "livre mercado" : "regulação estatal") + ".";
+
+  let axesHTML = "";
+  AXES.forEach(function (a) {
+    const r = res[a.id], s = r.score;
+    axesHTML += '<div class="axis"><div class="axhead"><h3 class="axname">' + a.name + '</h3><span class="score">' + fmt(s) + '</span></div>' +
+      barHTML(a, s) +
+      '<div class="poles"><span class="' + (s <= -5 ? "on" : "") + '">' + a.neg + '</span><span class="' + (s >= 5 ? "on" : "") + '">' + a.pos + '</span></div>' +
+      '<p>' + analysisText(a, r) + '</p></div>';
+  });
+
+  let corrHTML = "";
+  nearestProfiles(res).forEach(function (m) {
+    const d = diffsFor(m.u, m.p);
+    corrHTML += '<li><div class="lh"><h3>' + m.p.name + '</h3><span class="aff">afinidade ' + m.sim + '%</span></div><p>' + m.p.desc + '</p>' +
+      '<strong>Onde você se diferencia</strong><ul>' +
+      (d.length ? d.map(function (t) { return "<li>" + t + "</li>"; }).join("") : "<li>Você fica a menos de 25 pontos desta corrente em todos os eixos; as diferenças são pequenas.</li>") +
+      '</ul></li>';
+  });
+
+  const tq = topQuestions(state.answers, res);
+  let tqHTML = "";
+  tq.forEach(function (it) {
+    const a = AXES.filter(function (x) { return x.id === it.q.axis; })[0];
+    const ans = state.answers[it.i];
+    const pts = Math.abs(it.v) / 12 * 100;
+    const where = it.v === 0
+      ? "não deslocou o eixo " + a.name + " (resposta neutra)."
+      : "deslocou o eixo " + a.name + " em " + dec(pts) + " pontos para «" + (it.v > 0 ? a.pos : a.neg) + "».";
+    tqHTML += '<li><p class="quote">“' + it.q.text + '”</p><p class="meta">Pergunta ' + (it.i + 1) + '. Sua resposta: ' + LABELS[ans - 1] + ' (' + ans + '). Ela ' + where + '</p></li>';
+  });
+
+  app.innerHTML =
+    '<div class="res"><div class="top"><span class="brand">Bússola de Valores</span><span class="count">36 / 36</span></div>' +
+    '<h1>Seu resultado</h1><p class="summary">' + summary + '</p>' +
+    '<section class="sec"><h2>Bússola política</h2><p class="sub">Economia na horizontal e liberdade na vertical. Seu ponto está marcado em laranja.</p>' +
+    '<div class="chart">' + compassSVG(ex, ly) + '</div><p class="cap">Economia ' + fmt(ex) + ' · Liberdade ' + fmt(ly) + '. ' + quad + '</p></section>' +
+    '<section class="sec"><h2>Radar dos seis eixos</h2><p class="sub">O centro do gráfico vale −100 em cada eixo, o anel tracejado vale 0 e a borda vale +100. Os polos de cada eixo estão nas barras logo abaixo.</p>' +
+    '<div class="chart">' + radarSVG(sc) + '</div></section>' +
+    '<section class="sec"><h2>Análise por eixo</h2><p class="sub">Cada pontuação vai de −100 (polo da esquerda) a +100 (polo da direita).</p>' + axesHTML + '</section>' +
+    '<section class="sec"><h2>Correntes mais próximas</h2><p class="sub">Comparação com perfis de referência simplificados; cada corrente tem muitas variações internas.</p><ol class="list">' + corrHTML + '</ol></section>' +
+    '<section class="sec"><h2>Perguntas que mais pesaram</h2><p class="sub">As respostas mais extremas, nos eixos em que sua posição ficou mais marcada.</p><ol class="list">' + tqHTML + '</ol></section>' +
+    '<section class="sec"><h2>Limites do teste</h2><div class="note"><p>São 36 afirmações e seis eixos, o que resume posições políticas de forma bastante simplificada. O resultado depende da redação das perguntas e do momento em que você respondeu, e sua posição pode variar de um tema para outro dentro do mesmo eixo. Use como ponto de partida para reflexão, não como rótulo.</p><p><strong>Consistência das respostas.</strong> ' + consistency(state.answers) + '</p></div></section>' +
+    '<button type="button" class="btn" data-act="restart">Refazer o teste</button></div>';
+}
+
+function finish() {
+  state.done = true;
+  save();
+  renderResult();
+  window.scrollTo(0, 0);
+}
+function choose(v) {
+  if (lock || state.done) return;
+  state.answers[state.i] = v;
+  save();
+  Array.prototype.forEach.call(app.querySelectorAll(".ans"), function (b) {
+    b.setAttribute("aria-pressed", String(b.getAttribute("data-v") === String(v)));
+  });
+  lock = true;
+  setTimeout(function () {
+    lock = false;
+    if (state.i < TOTAL - 1) { state.i++; renderQuiz(true); }
+    else finish();
+  }, 220);
+}
+function back() {
+  if (lock || state.done || state.i === 0) return;
+  state.i--;
+  save();
+  renderQuiz(true);
+}
+function restart() {
+  state = { i: 0, answers: new Array(TOTAL).fill(null), done: false };
+  try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ }
+  renderQuiz(false);
+  window.scrollTo(0, 0);
+}
+
+app.addEventListener("click", function (e) {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.classList.contains("ans")) choose(+b.getAttribute("data-v"));
+  else if (b.getAttribute("data-act") === "back") back();
+  else if (b.getAttribute("data-act") === "restart") restart();
+});
+document.addEventListener("keydown", function (e) {
+  if (state.done || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^[1-5]$/.test(e.key)) choose(+e.key);
+  else if (e.key === "ArrowLeft" || e.key === "Backspace") { e.preventDefault(); back(); }
+});
+
+load();
+if (state.done) renderResult(); else renderQuiz(false);
+</script>
+
+</body></html>
